@@ -43,8 +43,8 @@ func printBanner() {
 ▙▄▘▝▀▖▙▀▖▝▀▖▛▚▀▖▙▄▘▙▀▖▞▀▖▛▀▖▞▀▖
 ▌  ▞▀▌▌  ▞▀▌▌▐ ▌▌  ▌  ▌ ▌▌ ▌▛▀ 
 ▘  ▝▀▘▘  ▝▀▘▘▝ ▘▘  ▘  ▝▀ ▀▀ ▝▀▘
-	
-	Version: 1.0.0
+
+    Version: 1.0.0
     Reflected Parameter Finder
     Author: fkr00t | Github: https://github.com/fkr00t
     `
