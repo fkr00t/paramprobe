@@ -24,7 +24,7 @@ import (
 
 const (
 	REFLECTION_MARKER = "PAYLOAD"
-	REPO_URL          = "github.com/fkr00t/paramprobe@latest" // Ganti dengan URL repository Anda
+	REPO_URL          = "github.com/fkr00t/paramprobe" // Ganti dengan URL repository Anda
 )
 
 var (
