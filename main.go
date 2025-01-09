@@ -26,7 +26,7 @@ import (
 const (
 	REFLECTION_MARKER = "PAYLOAD"
 	REPO_URL          = "github.com/fkr00t/paramprobe" // Clean package path
-	VERSION           = "1.0.0"                        // Versi saat ini
+	VERSION           = "1.0.1"                        // Versi saat ini
 )
 
 var (
@@ -268,19 +268,19 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of ParamProbe:\n")
 		fmt.Println("  -u, --url string")
-		fmt.Println("        Target URL to crawl (e.g., http://example.com)")
+		fmt.Println("        Target URL to crawl (e.g., http://example.com)\n")
 		fmt.Println("  -c, --crawl")
-		fmt.Println("        Crawl subdomains as well (optional)")
+		fmt.Println("        Crawl subdomains as well (optional)\n")
 		fmt.Println("  -d, --delay duration")
-		fmt.Println("        Delay between requests (e.g., 1s, 500ms)")
+		fmt.Println("        Delay between requests (e.g., 1s, 500ms)\n")
 		fmt.Println("  --user-agent string")
-		fmt.Println("        Custom User-Agent string")
+		fmt.Println("        Custom User-Agent string\n")
 		fmt.Println("  --random-agent")
-		fmt.Println("        Use a random User-Agent")
+		fmt.Println("        Use a random User-Agent\n")
 		fmt.Println("  -up, --update")
-		fmt.Println("        Update the tool to the latest version")
+		fmt.Println("        Update the tool to the latest version\n")
 		fmt.Println("  -h, --help")
-		fmt.Println("        Show this help message")
+		fmt.Println("        Show this help message\n")
 		fmt.Println("\nExample:")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com -d 1s --random-agent")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com --user-agent 'MyCustomAgent'")
