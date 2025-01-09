@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,7 @@ import (
 
 const (
 	REFLECTION_MARKER = "PAYLOAD"
+	REPO_URL          = "https://github.com/fkr00t/paramprobe" // Ganti dengan URL repository Anda
 )
 
 var (
@@ -41,7 +43,7 @@ func printBanner() {
 ▙▄▘▝▀▖▙▀▖▝▀▖▛▚▀▖▙▄▘▙▀▖▞▀▖▛▀▖▞▀▖
 ▌  ▞▀▌▌  ▞▀▌▌▐ ▌▌  ▌  ▌ ▌▌ ▌▛▀ 
 ▘  ▝▀▘▘  ▝▀▘▘▝ ▘▘  ▘  ▝▀ ▀▀ ▝▀▘
-
+	
 	Version: 1.0.0
     Reflected Parameter Finder
     Author: fkr00t | Github: https://github.com/fkr00t
@@ -190,6 +192,23 @@ func checkReflectedParameter(baseURL, param string, userAgent string) string {
 	return ""
 }
 
+func updateTool() {
+	color.Cyan("[*] Checking for updates...")
+
+	// Jalankan perintah `go install` untuk mengupdate tools
+	cmd := exec.Command("go", "install", REPO_URL+"@latest")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		color.Red("[!] Failed to update tool: %v", err)
+		return
+	}
+
+	color.Green("[+] Tool updated successfully!")
+}
+
 func main() {
 	printBanner()
 
@@ -202,6 +221,8 @@ func main() {
 	flag.DurationVar(delay, "delay", 0, "Delay between requests (e.g., 1s, 500ms)")
 	userAgent := flag.String("user-agent", "", "Custom User-Agent string")
 	randomAgent := flag.Bool("random-agent", false, "Use a random User-Agent")
+	update := flag.Bool("up", false, "Update the tool to the latest version")
+	flag.BoolVar(update, "update", false, "Update the tool to the latest version")
 	help := flag.Bool("h", false, "Show help message")
 	flag.BoolVar(help, "help", false, "Show help message")
 
@@ -218,11 +239,14 @@ func main() {
 		fmt.Println("        Custom User-Agent string")
 		fmt.Println("  --random-agent")
 		fmt.Println("        Use a random User-Agent")
+		fmt.Println("  -up, --update")
+		fmt.Println("        Update the tool to the latest version")
 		fmt.Println("  -h, --help")
 		fmt.Println("        Show this help message")
 		fmt.Println("\nExample:")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com -d 1s --random-agent")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com --user-agent 'MyCustomAgent'")
+		fmt.Println("  paramprobe --update")
 	}
 
 	// Parse flags
@@ -231,6 +255,12 @@ func main() {
 	// Show help message if -h or --help is used
 	if *help {
 		flag.Usage()
+		return
+	}
+
+	// Jika opsi --update digunakan, update tools dan keluar
+	if *update {
+		updateTool()
 		return
 	}
 
