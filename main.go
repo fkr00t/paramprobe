@@ -24,7 +24,7 @@ import (
 
 const (
 	REFLECTION_MARKER = "PAYLOAD"
-	REPO_URL          = "https://github.com/fkr00t/paramprobe" // Ganti dengan URL repository Anda
+	REPO_URL          = "github.com/fkr00t/paramprobe@latest" // Ganti dengan URL repository Anda
 )
 
 var (
@@ -191,6 +191,10 @@ func checkReflectedParameter(baseURL, param string, userAgent string) string {
 	}
 	return ""
 }
+
+const (
+	REPO_URL = "github.com/fkr00t/paramprobe" // Clean package path
+)
 
 func updateTool() {
 	color.Cyan("[*] Checking for updates...")
