@@ -192,10 +192,6 @@ func checkReflectedParameter(baseURL, param string, userAgent string) string {
 	return ""
 }
 
-const (
-	REPO_URL = "github.com/fkr00t/paramprobe" // Clean package path
-)
-
 func updateTool() {
 	color.Cyan("[*] Checking for updates...")
 
