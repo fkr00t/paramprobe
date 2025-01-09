@@ -4,11 +4,11 @@ ParamProbe is a tool designed to discover reflected parameters on websites. This
 
 ## Features
 
-- **Automatic Crawling**: Explores websites and collects all URL parameters.
-- **Reflected Parameter Detection**: Tests parameters reflected in HTTP responses.
-- **Crawling Subdomain**: Option to explore subdomains.
-- **Custom User-Agent**: Supports custom or random User-Agent.
-- **Automatic Updates**: Provides support to update the tool to the latest version.
+- 🔍**Automatic Crawling**: Explores websites and collects all URL parameters.
+- 🔒**Reflected Parameter Detection**: Tests parameters reflected in HTTP responses.
+- 🌐**Crawling Subdomain**: Option to explore subdomains.
+- 🛠️ **Custom User-Agent**: Supports custom or random User-Agent.
+- 🔄 **Automatic Updates**: Provides support to update the tool to the latest version.
 
 ## Installation
 ```
