@@ -1,4 +1,4 @@
-module ParamProbe
+module https://github.com/fkr00t/paramprobe
 
 go 1.23.4
 
