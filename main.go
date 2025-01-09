@@ -45,7 +45,7 @@ func printBanner() {
     Reflected Parameter Finder
     Author: fkr00t | Github: https://github.com/fkr00t
     `
-	color.Red(banner)
+	color.Blue(banner)
 }
 
 func fetchURL(target string, userAgent string) (string, error) {
