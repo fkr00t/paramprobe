@@ -219,21 +219,40 @@ func checkLatestVersion() (string, error) {
 func updateTool() {
 	color.Cyan("[*] Checking for updates...")
 
+	// Cek versi terbaru dari GitHub
 	latestVersion, err := checkLatestVersion()
 	if err != nil {
 		color.Red("[!] Failed to check for updates: %v", err)
 		return
 	}
 
+	// Jika sudah menggunakan versi terbaru
 	if latestVersion == VERSION {
-		color.Green("[+] You are using the latest version: %s", VERSION)
+		color.Green("[+] You are already using the latest version: %s", VERSION)
 		return
 	}
 
 	color.Cyan("[*] New version available: %s", latestVersion)
 	color.Cyan("[*] Updating to the latest version...")
 
-	// Jalankan perintah `go install` untuk mengupdate tools
+	// Hapus tools lama
+	color.Cyan("[*] Removing old version...")
+	executablePath, err := exec.LookPath("paramprobe")
+	if err != nil {
+		color.Red("[!] Failed to find paramprobe executable: %v", err)
+		return
+	}
+
+	// Hapus file binary
+	err = os.Remove(executablePath)
+	if err != nil {
+		color.Red("[!] Failed to remove old version: %v", err)
+		return
+	}
+	color.Green("[+] Old version removed successfully.")
+
+	// Jalankan `go install` untuk mengupdate tools
+	color.Cyan("[*] Installing new version...")
 	cmd := exec.Command("go", "install", REPO_URL+"@latest")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
