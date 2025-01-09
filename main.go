@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -24,7 +25,8 @@ import (
 
 const (
 	REFLECTION_MARKER = "PAYLOAD"
-	REPO_URL          = "github.com/fkr00t/paramprobe" // Ganti dengan URL repository Anda
+	REPO_URL          = "github.com/fkr00t/paramprobe" // Clean package path
+	VERSION           = "1.0.0"                        // Versi saat ini
 )
 
 var (
@@ -44,11 +46,11 @@ func printBanner() {
 ▌  ▞▀▌▌  ▞▀▌▌▐ ▌▌  ▌  ▌ ▌▌ ▌▛▀ 
 ▘  ▝▀▘▘  ▝▀▘▘▝ ▘▘  ▘  ▝▀ ▀▀ ▝▀▘
 
-    Version: 2.0.0
+    Version: %s
     Reflected Parameter Finder
     Author: fkr00t | Github: https://github.com/fkr00t
     `
-	color.Red(banner)
+	color.Red(banner, VERSION)
 }
 
 func fetchURL(target string, userAgent string) (string, error) {
@@ -192,21 +194,57 @@ func checkReflectedParameter(baseURL, param string, userAgent string) string {
 	return ""
 }
 
+func checkLatestVersion() (string, error) {
+	resp, err := http.Get("https://api.github.com/repos/fkr00t/paramprobe/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.Unmarshal(body, &release); err != nil {
+		return "", err
+	}
+
+	return release.TagName, nil
+}
+
 func updateTool() {
 	color.Cyan("[*] Checking for updates...")
+
+	latestVersion, err := checkLatestVersion()
+	if err != nil {
+		color.Red("[!] Failed to check for updates: %v", err)
+		return
+	}
+
+	if latestVersion == VERSION {
+		color.Green("[+] You are using the latest version: %s", VERSION)
+		return
+	}
+
+	color.Cyan("[*] New version available: %s", latestVersion)
+	color.Cyan("[*] Updating to the latest version...")
 
 	// Jalankan perintah `go install` untuk mengupdate tools
 	cmd := exec.Command("go", "install", REPO_URL+"@latest")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		color.Red("[!] Failed to update tool: %v", err)
 		return
 	}
 
-	color.Green("[+] Tool updated successfully!")
+	color.Green("[+] Tool updated successfully to version %s!", latestVersion)
 }
 
 func main() {
