@@ -30,6 +30,7 @@ Option:
     --user-agent        Custom User-Agent.
     --random-agent      Use a random User-Agent.
     -up, --update       Update the tool to the latest version.
+    -p, --passive       Perform passive scanning using Wayback Machine and Archive.today.
     -h, --help          Show help message.
 
 
