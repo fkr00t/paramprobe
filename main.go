@@ -26,7 +26,7 @@ import (
 const (
 	REFLECTION_MARKER = "PAYLOAD"
 	REPO_URL          = "github.com/fkr00t/paramprobe" // Clean package path
-	VERSION           = "1.0.1"                        // Versi saat ini
+	VERSION           = "2.0.0"                        // Versi saat ini
 )
 
 var (
@@ -266,6 +266,148 @@ func updateTool() {
 	color.Green("[+] Tool updated successfully to version %s!", latestVersion)
 }
 
+func getWaybackURLs(target string) ([]string, error) {
+	url := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=json&collapse=urlkey", target)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result [][]string
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	for _, entry := range result[1:] { // Skip the first row (headers)
+		urls = append(urls, entry[2]) // URL is in the third column
+	}
+
+	return urls, nil
+}
+
+func getArchiveTodayURLs(target string) ([]string, error) {
+	url := fmt.Sprintf("https://archive.today/submit/?url=%s", target)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, exists := s.Attr("href")
+		if exists && strings.Contains(href, "archive.today") {
+			urls = append(urls, href)
+		}
+	})
+
+	return urls, nil
+}
+
+func passiveScan(target string, userAgent string) (map[string][]string, error) {
+	color.Cyan("[*] Starting passive scan...")
+
+	parameters := make(map[string][]string)
+
+	// Get URLs from Wayback Machine
+	waybackURLs, err := getWaybackURLs(target)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching Wayback Machine URLs: %v", err)
+	}
+
+	// Get URLs from Archive.today
+	archiveTodayURLs, err := getArchiveTodayURLs(target)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching Archive.today URLs: %v", err)
+	}
+
+	// Combine URLs from both sources
+	allURLs := append(waybackURLs, archiveTodayURLs...)
+
+	// Process each URL
+	for _, u := range allURLs {
+		parsedURL, err := url.Parse(u)
+		if err != nil {
+			continue
+		}
+
+		queryParams := parsedURL.Query()
+		for param := range queryParams {
+			baseURL := parsedURL.Scheme + "://" + parsedURL.Host + parsedURL.Path
+			parameters[baseURL] = append(parameters[baseURL], param)
+		}
+	}
+
+	color.Cyan("[+] Found %d unique parameters from passive scan.", len(parameters))
+	return parameters, nil
+}
+
+func analyzeReflectedParameters(parameters map[string][]string, userAgent string, targetFolder string) {
+	color.Cyan("[*] Analyzing reflected parameters...")
+
+	reflectedResults := make(map[string]bool) // Use a map to store unique results
+
+	// Initialize progress bar
+	bar := pb.New(len(parameters))
+	bar.SetTemplateString(`{{with string . "prefix"}}{{.}} {{end}}{{counters . }} {{bar . }} {{percent . }} {{etime . "ETA: %s"}}`)
+	bar.Set("prefix", "Progress:")
+	bar.Start()
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for baseURL, params := range parameters {
+		for _, param := range params {
+			wg.Add(1)
+			go func(baseURL, param string) {
+				defer wg.Done()
+				result := checkReflectedParameter(baseURL, param, userAgent)
+				if result != "" {
+					mu.Lock()
+					reflectedResults[result] = true // Store unique results in the map
+					mu.Unlock()
+				}
+				bar.Increment()
+			}(baseURL, param)
+		}
+	}
+
+	wg.Wait()
+	bar.Finish()
+
+	// Output results
+	if len(reflectedResults) > 0 {
+		color.Green("\n[+] Reflected Parameters Found:")
+		for result := range reflectedResults {
+			color.Green("  [Reflected] %s", result)
+			resultFile := filepath.Join(targetFolder, "reflected_parameters.txt")
+			f, err := os.OpenFile(resultFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				color.Red("[!] Error writing to file: %v", err)
+				continue
+			}
+			if _, err := f.WriteString(result + "\n"); err != nil {
+				color.Red("[!] Error writing to file: %v", err)
+			}
+			f.Close()
+		}
+	} else {
+		color.Red("\n[-] No reflected parameters found.")
+	}
+}
+
 func main() {
 	printBanner()
 
@@ -280,6 +422,8 @@ func main() {
 	randomAgent := flag.Bool("random-agent", false, "Use a random User-Agent")
 	update := flag.Bool("up", false, "Update the tool to the latest version")
 	flag.BoolVar(update, "update", false, "Update the tool to the latest version")
+	passive := flag.Bool("p", false, "Perform passive scanning using Wayback Machine and Archive.today")
+	flag.BoolVar(passive, "passive", false, "Perform passive scanning using Wayback Machine and Archive.today")
 	help := flag.Bool("h", false, "Show help message")
 	flag.BoolVar(help, "help", false, "Show help message")
 
@@ -298,12 +442,15 @@ func main() {
 		fmt.Println("        Use a random User-Agent\n")
 		fmt.Println("  -up, --update")
 		fmt.Println("        Update the tool to the latest version\n")
+		fmt.Println("  -p, --passive")
+		fmt.Println("        Perform passive scanning using Wayback Machine and Archive.today\n")
 		fmt.Println("  -h, --help")
 		fmt.Println("        Show this help message\n")
 		fmt.Println("\nExample:")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com -d 1s --random-agent")
 		fmt.Println("  paramprobe -u http://testphp.vulnweb.com --user-agent 'MyCustomAgent'")
 		fmt.Println("  paramprobe --update")
+		fmt.Println("  paramprobe -u http://testphp.vulnweb.com --passive")
 	}
 
 	// Parse flags
@@ -369,71 +516,107 @@ func main() {
 		os.Exit(1)
 	}()
 
-	// Step 1: Crawl the domain
-	parameters, targetFolder, err := crawlDomain(*target, *crawlSubdomains, *delay, selectedUserAgent)
-	if err != nil {
-		color.Red("[!] Error crawling domain: %v", err)
-		return
-	}
+	var parameters map[string][]string
+	var targetFolder string
+	var err error
 
-	// Step 2: Test reflected parameters
-	color.Cyan("[*] Testing for reflected parameters...")
-	if *crawlSubdomains {
-		color.Cyan("[*] Including subdomains in the test.")
-	}
-
-	// Initialize progress bar
-	bar := pb.New(len(parameters))
-	bar.SetTemplateString(`{{with string . "prefix"}}{{.}} {{end}}{{counters . }} {{bar . }} {{percent . }} {{etime . "ETA: %s"}}`)
-	bar.Set("prefix", "Progress:")
-	bar.Start()
-
-	reflectedResults := make(map[string]bool) // Use a map to store unique results
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	for baseURL, params := range parameters {
-		for _, param := range params {
-			wg.Add(1)
-			go func(baseURL, param string) {
-				defer wg.Done()
-				select {
-				case <-ctx.Done():
-					return // Berhenti jika context dibatalkan
-				default:
-					result := checkReflectedParameter(baseURL, param, selectedUserAgent)
-					if result != "" {
-						mu.Lock()
-						reflectedResults[result] = true // Store unique results in the map
-						mu.Unlock()
-					}
-					bar.Increment()
-				}
-			}(baseURL, param)
+	// Step 1: Perform passive scan if -p flag is used
+	if *passive {
+		parameters, err = passiveScan(*target, selectedUserAgent)
+		if err != nil {
+			color.Red("[!] Error performing passive scan: %v", err)
+			return
 		}
-	}
 
-	wg.Wait()
-	bar.Finish()
-
-	// Output results
-	if len(reflectedResults) > 0 {
-		color.Green("\n[+] Reflected Parameters Found:")
-		for result := range reflectedResults {
-			color.Green("  [Reflected] %s", result)
-			resultFile := filepath.Join(targetFolder, "reflected_parameters.txt")
-			f, err := os.OpenFile(resultFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				color.Red("[!] Error writing to file: %v", err)
-				continue
-			}
-			if _, err := f.WriteString(result + "\n"); err != nil {
-				color.Red("[!] Error writing to file: %v", err)
-			}
-			f.Close()
+		// Create a "result" folder if it doesn't exist
+		resultFolder := "result"
+		if err := os.MkdirAll(resultFolder, os.ModePerm); err != nil {
+			color.Red("[!] Error creating result folder: %v", err)
+			return
 		}
+
+		// Create a subfolder inside "result" for the target domain
+		targetURL, err := url.Parse(*target)
+		if err != nil {
+			color.Red("[!] Error parsing target URL: %v", err)
+			return
+		}
+		targetDomain := targetURL.Host
+		targetFolder = filepath.Join(resultFolder, strings.ReplaceAll(targetDomain, ".", "_"))
+		if err := os.MkdirAll(targetFolder, os.ModePerm); err != nil {
+			color.Red("[!] Error creating target folder: %v", err)
+			return
+		}
+
+		// Analyze reflected parameters from passive scan
+		analyzeReflectedParameters(parameters, selectedUserAgent, targetFolder)
 	} else {
-		color.Red("\n[-] No reflected parameters found.")
+		// Step 2: Crawl the domain
+		parameters, targetFolder, err = crawlDomain(*target, *crawlSubdomains, *delay, selectedUserAgent)
+		if err != nil {
+			color.Red("[!] Error crawling domain: %v", err)
+			return
+		}
+
+		// Step 3: Test reflected parameters
+		color.Cyan("[*] Testing for reflected parameters...")
+		if *crawlSubdomains {
+			color.Cyan("[*] Including subdomains in the test.")
+		}
+
+		// Initialize progress bar
+		bar := pb.New(len(parameters))
+		bar.SetTemplateString(`{{with string . "prefix"}}{{.}} {{end}}{{counters . }} {{bar . }} {{percent . }} {{etime . "ETA: %s"}}`)
+		bar.Set("prefix", "Progress:")
+		bar.Start()
+
+		reflectedResults := make(map[string]bool) // Use a map to store unique results
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+
+		for baseURL, params := range parameters {
+			for _, param := range params {
+				wg.Add(1)
+				go func(baseURL, param string) {
+					defer wg.Done()
+					select {
+					case <-ctx.Done():
+						return // Berhenti jika context dibatalkan
+					default:
+						result := checkReflectedParameter(baseURL, param, selectedUserAgent)
+						if result != "" {
+							mu.Lock()
+							reflectedResults[result] = true // Store unique results in the map
+							mu.Unlock()
+						}
+						bar.Increment()
+					}
+				}(baseURL, param)
+			}
+		}
+
+		wg.Wait()
+		bar.Finish()
+
+		// Output results
+		if len(reflectedResults) > 0 {
+			color.Green("\n[+] Reflected Parameters Found:")
+			for result := range reflectedResults {
+				color.Green("  [Reflected] %s", result)
+				resultFile := filepath.Join(targetFolder, "reflected_parameters.txt")
+				f, err := os.OpenFile(resultFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					color.Red("[!] Error writing to file: %v", err)
+					continue
+				}
+				if _, err := f.WriteString(result + "\n"); err != nil {
+					color.Red("[!] Error writing to file: %v", err)
+				}
+				f.Close()
+			}
+		} else {
+			color.Red("\n[-] No reflected parameters found.")
+		}
 	}
 }
